@@ -125,30 +125,25 @@ class AuctionServerGUI(tk.Tk):
         self.category_var = StringVar(self)
         self.item_var = StringVar(self)
 
-        # 分类下拉菜单
         self.category_label = tk.Label(self, text="选择商品大类", bg="#f0f0f0")
         self.category_label.grid(row=0, column=0, padx=5, pady=5)
         self.category_menu = ttk.Combobox(self, textvariable=self.category_var, state="readonly")
         self.category_menu.grid(row=0, column=1, padx=5, pady=5)
         self.category_menu.bind("<<ComboboxSelected>>", self.load_items)
 
-        # 商品下拉菜单
         self.item_label = tk.Label(self, text="选择商品", bg="#f0f0f0")
         self.item_label.grid(row=1, column=0, padx=5, pady=5)
         self.item_menu = ttk.Combobox(self, textvariable=self.item_var, state="readonly")
         self.item_menu.grid(row=1, column=1, padx=5, pady=5)
 
-        # 拍卖信息区域
         self.auction_info = scrolledtext.ScrolledText(self, state='disabled', width=40, height=10)
         self.auction_info.grid(row=2, column=0, columnspan=2, padx=5, pady=10)
 
-        # 在线客户区域
         self.client_label = tk.Label(self, text="在线客户:", bg="#f0f0f0")
         self.client_label.grid(row=0, column=2, padx=5, pady=5)
         self.client_list = tk.Listbox(self, width=20, height=15)
         self.client_list.grid(row=1, column=2, rowspan=2, padx=5, pady=5)
 
-        # 按钮
         self.start_button = tk.Button(self, text="开始拍卖", command=self.start_auction)
         self.start_button.grid(row=3, column=0, padx=5, pady=5)
 
@@ -235,7 +230,7 @@ class StartupWindow(tk.Tk):
             return
 
         threading.Thread(target=self.on_submit, args=(host, port)).start()
-        self.destroy()  # 关闭启动设置窗口
+        self.destroy()
 
 
 def start_auction_server(host, port):

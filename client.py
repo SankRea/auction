@@ -22,8 +22,8 @@ class AuctionClient:
             self.conn.send(self.username.encode())
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
-            self.initial_window.destroy()  # 关闭启动界面
-            self.start_auction_interface()  # 打开拍卖界面
+            self.initial_window.destroy() 
+            self.start_auction_interface()
         except Exception as e:
             messagebox.showerror("连接错误", f"无法连接到服务器: {e}")
 
