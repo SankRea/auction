@@ -1,7 +1,7 @@
 import socket
 
-HOST = '0.0.0.0'  # 监听所有可用的接口，包括公网 IP
-PORT = 8080       # 监听的端口
+HOST = '0.0.0.0' 
+PORT = 8080 
 
 def start_server():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
@@ -19,7 +19,7 @@ def start_server():
                         if not data:
                             break
                         print(f"收到消息: {data.decode()}")
-                        conn.sendall("消息已接收".encode('utf-8'))  # 使用 encode 转换字符串为字节
+                        conn.sendall("消息已接收".encode('utf-8'))
             except Exception as e:
                 print(f"发生错误: {e}")
 

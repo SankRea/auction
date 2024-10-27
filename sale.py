@@ -13,38 +13,29 @@ class AuctionApp:
         self.items = items
         self.current_item = self.get_random_item()
 
-        # 倒计时相关变量
-        self.countdown_time = 30  # 倒计时30秒
+        self.countdown_time = 30
         self.countdown_active = False
 
-        # 显示当前商品名称
         self.item_label = tk.Label(root, text=f"当前商品: {self.current_item}")
         self.item_label.pack()
 
-        # 显示当前出价
         self.bid_label = tk.Label(root, text="当前价格: 0")
         self.bid_label.pack()
 
-        # 倒计时显示
         self.timer_label = tk.Label(root, text=f"剩余时间: {self.countdown_time}s")
         self.timer_label.pack()
 
-        # 出价输入框
         self.bid_entry = tk.Entry(root)
         self.bid_entry.pack()
 
-        # 出价按钮
         self.bid_button = tk.Button(root, text="出价", command=self.place_bid)
         self.bid_button.pack()
 
-        # 加价快捷按钮
         self.increment_buttons()
 
-        # 显示最高出价者
         self.winner_label = tk.Label(root, text="")
         self.winner_label.pack()
 
-        # 开始倒计时
         self.start_countdown()
 
     def get_random_item(self):
@@ -61,7 +52,7 @@ class AuctionApp:
     def increment_bid(self, amount):
         """增加出价"""
         self.current_price += amount
-        self.reset_countdown()  # 有人加价时重置倒计时
+        self.reset_countdown()
         self.update_bid()
 
     def place_bid(self):
@@ -71,7 +62,7 @@ class AuctionApp:
             if bid > self.current_price:
                 self.current_price = bid
                 self.highest_bidder = f"出价者: {self.bid_entry.get()}"
-                self.reset_countdown()  # 有人出价时重置倒计时
+                self.reset_countdown()
                 self.update_bid()
             else:
                 messagebox.showwarning("出价失败", "出价必须高于当前价格！")
@@ -99,7 +90,6 @@ class AuctionApp:
         if self.countdown_time > 0:
             self.timer_label.config(text=f"剩余时间: {self.countdown_time}s")
             self.countdown_time -= 1
-            # 每隔1秒调用自己一次
             self.root.after(1000, self.update_timer)
         else:
             self.timer_label.config(text="时间到！")
@@ -112,17 +102,14 @@ class AuctionApp:
         else:
             messagebox.showinfo("拍卖结束", f"商品 {self.current_item} 未有人出价。")
         
-        # 随机获取下一个商品
         self.current_item = self.get_random_item()
         self.item_label.config(text=f"当前商品: {self.current_item}")
 
-        # 重置价格和最高出价者
         self.current_price = 0
         self.highest_bidder = ""
         self.bid_label.config(text="当前价格: 0")
         self.winner_label.config(text="")
         
-        # 重置倒计时
         self.reset_countdown()
 
 def load_items_from_json(file_path):
