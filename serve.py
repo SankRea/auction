@@ -47,7 +47,7 @@ class AuctionServer:
                 self.process_bid(username, message)
 
     def process_bid(self, username, message):
-        if self.current_winner:  # 如果当前已有赢家，则拒绝新的出价
+        if self.current_winner:
             self.clients[username]['conn'].send("该商品已成交，无法出价。".encode())
             return
 
@@ -97,9 +97,8 @@ class AuctionServer:
         else:
             self.notify_clients(f"商品 '{self.current_item}' 无人竞拍。")
         
-        # 重置当前赢家和出价
         self.current_winner = None
-        self.current_bid = 10  # 可根据需要调整起拍价
+        self.current_bid = 10
 
     def update_gui(self):
         if self.gui:

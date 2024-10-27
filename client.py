@@ -14,7 +14,7 @@ class AuctionClient:
         self.root = None
         self.current_item = "无"
         self.pending_bid = None
-        self.running = True  # 标志位
+        self.running = True
 
     def connect(self):
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -29,7 +29,7 @@ class AuctionClient:
             messagebox.showerror("连接错误", f"无法连接到服务器: {e}")
 
     def receive_messages(self):
-        while self.running:  # 使用标志位控制
+        while self.running:
             try:
                 message = self.conn.recv(1024).decode()
                 if message:
@@ -38,12 +38,12 @@ class AuctionClient:
                     if message.startswith("ITEM"):
                         self.current_item = message[5:]
                         self.root.after(0, self.update_current_item)
-                        self.enable_bidding()  # 启用出价
+                        self.enable_bidding()
                     elif message.startswith("WINNER"):
                         item_won = message.split()[1]
                         self.won_items.append(item_won)
                         self.root.after(0, self.update_won_items_display)
-                        self.disable_bidding()  # 禁用出价
+                        self.disable_bidding()
                     elif message.startswith("交易成功"):
                         parts = message.split()
                         if len(parts) > 1:
@@ -60,7 +60,7 @@ class AuctionClient:
             except Exception as e:
                 print(f"接收数据时发生错误：{e}") 
                 break
-        self.conn.close()  # 确保关闭连接
+        self.conn.close()
 
     def place_bid(self):
         bid = self.bid_entry.get()
@@ -152,7 +152,7 @@ class AuctionClient:
 
     def on_closing(self):
         if messagebox.askokcancel("退出", "您确定要退出吗？"):
-            self.running = False  # 设置标志位为 False
+            self.running = False
             self.conn.send("EXIT".encode())
             self.root.quit()
 
