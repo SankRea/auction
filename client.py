@@ -5,22 +5,22 @@ from tkinter import messagebox, scrolledtext
 
 class AuctionClient:
     def __init__(self):
-        self.host = None
-        self.port = None
+        self.host = '116.198.198.29' 
+        self.port = 5200       
         self.username = None
-        self.balance = 1000
+        self.balance = 1000  # 默认起始资金
         self.won_items = []
         self.conn = None
         self.root = None
         self.current_item = "无"
         self.pending_bid = None
-        self.running = True
 
     def connect(self):
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.conn.connect((self.host, self.port))
             self.conn.send(self.username.encode())
+            self.conn.send(str(self.balance).encode())  # 发送起始资金给服务器
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
             self.initial_window.destroy() 
@@ -29,29 +29,26 @@ class AuctionClient:
             messagebox.showerror("连接错误", f"无法连接到服务器: {e}")
 
     def receive_messages(self):
-        while self.running:
+        while True:
             try:
                 message = self.conn.recv(1024).decode()
                 if message:
                     print(f"接收到的消息: {message}")
-                    
+                    self.send_balance()
                     if message.startswith("ITEM"):
                         self.current_item = message[5:]
                         self.root.after(0, self.update_current_item)
-                        self.enable_bidding()
                     elif message.startswith("WINNER"):
                         item_won = message.split()[1]
                         self.won_items.append(item_won)
                         self.root.after(0, self.update_won_items_display)
-                        self.disable_bidding()
                     elif message.startswith("交易成功"):
                         parts = message.split()
                         if len(parts) > 1:
                             amount = int(parts[1])
                             self.balance -= amount
                             self.balance_label.config(text=f"当前余额: {self.balance}")
-                            self.update_message_area(f"交易成功: {amount} 元已从账户中扣除，当前余额为: {self.balance} 元。")
-                            messagebox.showinfo("成功", f"您成功出价 {amount} 元。")
+                            print(f"交易成功: {amount} 元已从账户中扣除，当前余额为: {self.balance} 元。")
                         self.pending_bid = None
                     else:
                         self.root.after(0, self.update_message_area, message)
@@ -59,8 +56,13 @@ class AuctionClient:
                     break
             except Exception as e:
                 print(f"接收数据时发生错误：{e}") 
+                messagebox.showerror("连接错误", f"接收数据时发生错误：{e}")
+                self.conn.close()
                 break
-        self.conn.close()
+
+
+    def send_balance(self):
+        self.conn.send(f"BALANCE {self.balance}".encode())
 
     def place_bid(self):
         bid = self.bid_entry.get()
@@ -75,7 +77,6 @@ class AuctionClient:
             else:
                 self.conn.send(f"BID {bid_amount}".encode())
                 self.pending_bid = bid_amount
-                self.update_message_area(f"您已出价 {bid_amount} 元。")
         except ValueError:
             messagebox.showerror("输入错误", "请输入有效的数字。")
 
@@ -102,25 +103,37 @@ class AuctionClient:
 
         tk.Label(self.initial_window, text="IP 地址:").grid(row=0, column=0)
         self.ip_entry = tk.Entry(self.initial_window)
+        self.ip_entry.insert(0, self.host)
         self.ip_entry.grid(row=0, column=1)
 
         tk.Label(self.initial_window, text="端口号:").grid(row=1, column=0)
         self.port_entry = tk.Entry(self.initial_window)
+        self.port_entry.insert(0, str(self.port))
         self.port_entry.grid(row=1, column=1)
 
         tk.Label(self.initial_window, text="用户名:").grid(row=2, column=0)
         self.username_entry = tk.Entry(self.initial_window)
         self.username_entry.grid(row=2, column=1)
 
-        tk.Button(self.initial_window, text="连接", command=self.start_connection).grid(row=3, columnspan=2)
+        tk.Label(self.initial_window, text="起始资金:").grid(row=3, column=0)
+        self.balance_entry = tk.Entry(self.initial_window)
+        self.balance_entry.insert(0, str(self.balance))  # 默认起始资金
+        self.balance_entry.grid(row=3, column=1)
+
+        tk.Button(self.initial_window, text="连接", command=self.start_connection).grid(row=4, columnspan=2)
 
         self.initial_window.mainloop()
 
     def start_connection(self):
-        self.host = self.ip_entry.get()
-        self.port = int(self.port_entry.get())
+        self.host = self.ip_entry.get() or self.host
+        self.port = int(self.port_entry.get() or self.port)
         self.username = self.username_entry.get()
-        self.connect()
+        balance_input = self.balance_entry.get()
+        try:
+            self.balance = int(balance_input) if balance_input else self.balance
+            self.connect()
+        except ValueError:
+            messagebox.showerror("输入错误", "请输入有效的起始资金。")
 
     def start_auction_interface(self):
         self.root = tk.Tk()
@@ -137,8 +150,7 @@ class AuctionClient:
         self.bid_entry = tk.Entry(self.root)
         self.bid_entry.grid(row=2, column=1)
 
-        self.bid_button = tk.Button(self.root, text="出价", command=self.place_bid)
-        self.bid_button.grid(row=2, column=2)
+        tk.Button(self.root, text="出价", command=self.place_bid).grid(row=2, column=2)
 
         self.message_area = scrolledtext.ScrolledText(self.root, width=40, height=10, state=tk.DISABLED)
         self.message_area.grid(row=3, columnspan=3)
@@ -152,17 +164,8 @@ class AuctionClient:
 
     def on_closing(self):
         if messagebox.askokcancel("退出", "您确定要退出吗？"):
-            self.running = False
             self.conn.send("EXIT".encode())
             self.root.quit()
-
-    def disable_bidding(self):
-        self.bid_entry.config(state=tk.DISABLED)
-        self.bid_button.config(state=tk.DISABLED)
-
-    def enable_bidding(self):
-        self.bid_entry.config(state=tk.NORMAL)
-        self.bid_button.config(state=tk.NORMAL)
 
     def run(self):
         self.create_startup_window()
