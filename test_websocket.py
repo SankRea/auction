@@ -1,30 +1,15 @@
-import asyncio
-import websockets
-import json
+import socket
 
-async def auction_client():
-    uri = "ws://localhost:8765"
-    async with websockets.connect(uri) as websocket:
-        username = input("请输入您的用户名: ")
-        
-        while True:
-            bid = input("请输入您的出价（或输入 'exit' 退出）: ")
-            if bid.lower() == 'exit':
-                break
-            
-            message = json.dumps({"username": username, "bid": float(bid)})
-            await websocket.send(message)
+HOST = '14.145.48.186'  # 服务器 IP
+PORT = 5003              # 服务器端口
 
-            try:
-                response = await websocket.recv()
-                response_data = json.loads(response)
-                if 'highest_bidder' in response_data:
-                    print(f"当前最高出价者: {response_data['highest_bidder']} 出价: {response_data['highest_bid']}")
-                elif 'error' in response_data:
-                    print(response_data['error'])
-            except websockets.ConnectionClosed:
-                print("与服务器的连接已关闭。")
-                break
-
-if __name__ == "__main__":
-    asyncio.run(auction_client())
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    try:
+        s.connect((HOST, PORT))
+        s.sendall(b"Test connection")  # 只使用 ASCII 字符
+        response = s.recv(1024)
+        print("收到响应:", response.decode())
+    except ConnectionRefusedError:
+        print("连接失败: 服务器未启动或端口未开放")
+    except Exception as e:
+        print(f"发生错误: {e}")

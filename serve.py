@@ -47,6 +47,10 @@ class AuctionServer:
                 self.process_bid(username, message)
 
     def process_bid(self, username, message):
+        if self.current_winner:  # 如果当前已有赢家，则拒绝新的出价
+            self.clients[username]['conn'].send("该商品已成交，无法出价。".encode())
+            return
+
         try:
             bid_amount = int(message.split()[1])
             if bid_amount > self.current_bid and bid_amount <= self.clients[username]['balance']:
@@ -85,13 +89,17 @@ class AuctionServer:
                 print(f"{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
                 self.clients[winner]['conn'].send(f"WINNER {item}".encode())
                 self.clients[winner]['conn'].send(f"交易成功 {final_price}".encode())
-                self.clients[winner]['conn'].send(" ".encode())
                 self.notify_clients(f"{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
+                self.notify_clients(f"交易成功！{winner} 购买了 '{item}'，成交价为 {final_price}。")
             else:
                 self.notify_clients(f"{winner} 余额不足，无法完成交易。")
                 print(f"{winner} 余额不足，当前余额为 {self.clients[winner]['balance']}")
         else:
             self.notify_clients(f"商品 '{self.current_item}' 无人竞拍。")
+        
+        # 重置当前赢家和出价
+        self.current_winner = None
+        self.current_bid = 10  # 可根据需要调整起拍价
 
     def update_gui(self):
         if self.gui:
@@ -208,38 +216,18 @@ class StartupWindow(tk.Tk):
         port_entry = tk.Entry(self, textvariable=self.port_var, width=30)
         port_entry.pack(pady=5)
 
-        tk.Button(self, text="提交", command=self.submit).pack(pady=20)
+        tk.Button(self, text="提交", command=lambda: self.on_submit(on_submit)).pack(pady=10)
 
-        self.on_submit = on_submit
-
-    def submit(self):
+    def on_submit(self, on_submit):
         host = self.host_var.get()
-        port = self.port_var.get()
-
-        # 输入验证
-        if not host or not port:
-            messagebox.showwarning("输入错误", "IP 地址和端口不能为空。")
-            return
-
-        try:
-            port = int(port)
-            if not (1 <= port <= 65535):
-                raise ValueError("端口必须在 1 到 65535 之间。")
-        except ValueError as e:
-            messagebox.showerror("输入错误", str(e))
-            return
-
-        threading.Thread(target=self.on_submit, args=(host, port)).start()
+        port = int(self.port_var.get())
+        on_submit(host, port)
         self.destroy()
 
 
-def start_auction_server(host, port):
-    auction_server = AuctionServer(host, port)
-    auction_gui = AuctionServerGUI(auction_server)
-    threading.Thread(target=auction_server.run, daemon=True).start()
-    auction_gui.mainloop()
+if __name__ == "__main__":
+    def start_server(host, port):
+        server = AuctionServer(host, port)
+        server.run()
 
-
-if __name__ == '__main__':
-    startup_window = StartupWindow(start_auction_server)
-    startup_window.mainloop()
+    StartupWindow(start_server).mainloop()
