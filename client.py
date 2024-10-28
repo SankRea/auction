@@ -19,8 +19,7 @@ class AuctionClient:
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.conn.connect((self.host, self.port))
-            self.conn.send(self.username.encode())
-            self.conn.send(str(self.balance).encode())  # 发送起始资金给服务器
+            self.conn.send(f"{self.username},{self.balance}".encode())
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
             self.initial_window.destroy() 

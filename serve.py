@@ -30,11 +30,12 @@ class AuctionServer:
 
     def handle_client(self, conn, addr):
         print(f"客户端连接: {addr}")
-        username = conn.recv(1024).decode()
-        self.clients[username] = {'conn': conn, 'balance': 1000, 'won_items': []}
+        data = conn.recv(1024).decode()
+        username, balance_str = data.split(',')
+        balance = int(balance_str)
 
+        self.clients[username] = {'conn': conn, 'balance': balance, 'won_items': []}
         self.update_client_list()
-
         while True:
             message = conn.recv(1024).decode()
             if message == 'EXIT':
@@ -51,19 +52,18 @@ class AuctionServer:
                 self.update_client_list()
 
     def process_bid(self, username, message):
-        if self.current_winner:
+        if self.current_winner is not None and self.current_winner != username:
             self.clients[username]['conn'].send("该商品已成交，无法出价。".encode())
             return
 
         try:
             bid_amount = int(message.split()[1])
             if bid_amount > self.current_bid and bid_amount <= self.clients[username]['balance']:
-                self.current_bid = bid_amount
-                self.current_winner = username
+                self.current_bid = bid_amount 
+                self.current_winner = username 
                 print(f"{username} 出价 {bid_amount}. 当前最高出价者: {self.current_winner}")
                 self.notify_clients(f"{username} 是当前的最高出价者，出价 {bid_amount}。")
-                self.notify_clients(f"ITEM {self.current_item}")
-                self.update_gui()
+                self.update_gui() 
             else:
                 self.clients[username]['conn'].send("出价过低或余额不足。".encode())
         except ValueError:
@@ -94,7 +94,7 @@ class AuctionServer:
                 self.clients[winner]['conn'].send(f"WINNER {item}".encode())
                 self.clients[winner]['conn'].send(f"交易成功 {final_price}".encode())
                 self.notify_clients(f" {winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
-                self.notify_clients(f"交易成功！{winner} 购买了 '{item}'，成交价为 {final_price}。")
+                self.notify_clients(f" {winner} 购买了'{item}'成交价为 {final_price}。")
             else:
                 self.notify_clients(f"{winner} 余额不足，无法完成交易。")
                 print(f"{winner} 余额不足，当前余额为 {self.clients[winner]['balance']}")
