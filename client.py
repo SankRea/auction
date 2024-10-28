@@ -5,10 +5,10 @@ from tkinter import messagebox, scrolledtext
 
 class AuctionClient:
     def __init__(self):
-        self.host = None
-        self.port = None
+        self.host = '116.198.198.29' 
+        self.port = 5200       
         self.username = None
-        self.balance = 1000
+        self.balance = 1000  # 默认起始资金
         self.won_items = []
         self.conn = None
         self.root = None
@@ -20,6 +20,7 @@ class AuctionClient:
         try:
             self.conn.connect((self.host, self.port))
             self.conn.send(self.username.encode())
+            self.conn.send(str(self.balance).encode())  # 发送起始资金给服务器
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
             self.initial_window.destroy() 
@@ -33,7 +34,7 @@ class AuctionClient:
                 message = self.conn.recv(1024).decode()
                 if message:
                     print(f"接收到的消息: {message}")
-                    
+                    self.send_balance()
                     if message.startswith("ITEM"):
                         self.current_item = message[5:]
                         self.root.after(0, self.update_current_item)
@@ -58,6 +59,10 @@ class AuctionClient:
                 messagebox.showerror("连接错误", f"接收数据时发生错误：{e}")
                 self.conn.close()
                 break
+
+
+    def send_balance(self):
+        self.conn.send(f"BALANCE {self.balance}".encode())
 
     def place_bid(self):
         bid = self.bid_entry.get()
@@ -98,25 +103,37 @@ class AuctionClient:
 
         tk.Label(self.initial_window, text="IP 地址:").grid(row=0, column=0)
         self.ip_entry = tk.Entry(self.initial_window)
+        self.ip_entry.insert(0, self.host)
         self.ip_entry.grid(row=0, column=1)
 
         tk.Label(self.initial_window, text="端口号:").grid(row=1, column=0)
         self.port_entry = tk.Entry(self.initial_window)
+        self.port_entry.insert(0, str(self.port))
         self.port_entry.grid(row=1, column=1)
 
         tk.Label(self.initial_window, text="用户名:").grid(row=2, column=0)
         self.username_entry = tk.Entry(self.initial_window)
         self.username_entry.grid(row=2, column=1)
 
-        tk.Button(self.initial_window, text="连接", command=self.start_connection).grid(row=3, columnspan=2)
+        tk.Label(self.initial_window, text="起始资金:").grid(row=3, column=0)
+        self.balance_entry = tk.Entry(self.initial_window)
+        self.balance_entry.insert(0, str(self.balance))  # 默认起始资金
+        self.balance_entry.grid(row=3, column=1)
+
+        tk.Button(self.initial_window, text="连接", command=self.start_connection).grid(row=4, columnspan=2)
 
         self.initial_window.mainloop()
 
     def start_connection(self):
-        self.host = self.ip_entry.get()
-        self.port = int(self.port_entry.get())
+        self.host = self.ip_entry.get() or self.host
+        self.port = int(self.port_entry.get() or self.port)
         self.username = self.username_entry.get()
-        self.connect()
+        balance_input = self.balance_entry.get()
+        try:
+            self.balance = int(balance_input) if balance_input else self.balance
+            self.connect()
+        except ValueError:
+            messagebox.showerror("输入错误", "请输入有效的起始资金。")
 
     def start_auction_interface(self):
         self.root = tk.Tk()
