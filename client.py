@@ -8,7 +8,7 @@ class AuctionClient:
         self.host = '116.198.198.29' 
         self.port = 5200       
         self.username = None
-        self.balance = 1000  # 默认起始资金
+        self.balance = 1000
         self.won_items = []
         self.conn = None
         self.root = None
@@ -116,7 +116,7 @@ class AuctionClient:
 
         tk.Label(self.initial_window, text="起始资金:").grid(row=3, column=0)
         self.balance_entry = tk.Entry(self.initial_window)
-        self.balance_entry.insert(0, str(self.balance))  # 默认起始资金
+        self.balance_entry.insert(0, str(self.balance))
         self.balance_entry.grid(row=3, column=1)
 
         tk.Button(self.initial_window, text="连接", command=self.start_connection).grid(row=4, columnspan=2)

@@ -16,6 +16,7 @@ class AuctionServer:
         self.current_item = None
         self.current_bid = 10
         self.current_winner = None
+        self.items_status = {}
         self.gui = None
 
     def load_items(self, filename):
@@ -36,6 +37,7 @@ class AuctionServer:
 
         self.clients[username] = {'conn': conn, 'balance': balance, 'won_items': []}
         self.update_client_list()
+        
         while True:
             message = conn.recv(1024).decode()
             if message == 'EXIT':
@@ -51,15 +53,30 @@ class AuctionServer:
                 self.clients[username]['balance'] = balance
                 self.update_client_list()
 
+    def start_auction(self, category, item):
+        self.current_item = item
+        self.current_bid = 10
+        self.current_winner = None
+        self.items_status[item] = {'item_sold': False, 'current_bid': self.current_bid}
+        self.notify_clients(f"拍卖开始: '{self.current_item}' 起拍价为 {self.current_bid}。")
+        print(f"拍卖开始: '{self.current_item}' 起拍价为 {self.current_bid}。")
+        self.update_gui()
+
     def process_bid(self, username, message):
-        if self.current_winner is not None and self.current_winner != username:
+        if self.current_item is None:
+            self.clients[username]['conn'].send("当前没有进行中的拍卖，无法出价。".encode())
+            return
+
+        item_status = self.items_status[self.current_item]
+
+        if item_status['item_sold']:
             self.clients[username]['conn'].send("该商品已成交，无法出价。".encode())
             return
 
         try:
             bid_amount = int(message.split()[1])
-            if bid_amount > self.current_bid and bid_amount <= self.clients[username]['balance']:
-                self.current_bid = bid_amount 
+            if bid_amount > item_status['current_bid'] and bid_amount <= self.clients[username]['balance']:
+                item_status['current_bid'] = bid_amount
                 self.current_winner = username 
                 print(f"{username} 出价 {bid_amount}. 当前最高出价者: {self.current_winner}")
                 self.notify_clients(f"{username} 是当前的最高出价者，出价 {bid_amount}。")
@@ -69,23 +86,11 @@ class AuctionServer:
         except ValueError:
             self.clients[username]['conn'].send("出价格式无效。".encode())
 
-    def notify_clients(self, message):
-        for client in self.clients.values():
-            client['conn'].send(message.encode())
-
-    def start_auction(self, category, item):
-        self.current_item = item
-        self.current_bid = 10
-        self.current_winner = None
-        self.notify_clients(f"拍卖开始: '{self.current_item}' 起拍价为 {self.current_bid}。")
-        print(f"拍卖开始: '{self.current_item}' 起拍价为 {self.current_bid}。")
-        self.update_gui()
-
     def complete_transaction(self):
         if self.current_winner:
             winner = self.current_winner
             item = self.current_item
-            final_price = self.current_bid
+            final_price = self.items_status[item]['current_bid']
             
             if self.clients[winner]['balance'] >= final_price:
                 self.clients[winner]['balance'] -= final_price
@@ -93,8 +98,9 @@ class AuctionServer:
                 print(f"{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
                 self.clients[winner]['conn'].send(f"WINNER {item}".encode())
                 self.clients[winner]['conn'].send(f"交易成功 {final_price}".encode())
-                self.notify_clients(f" {winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
-                self.notify_clients(f" {winner} 购买了'{item}'成交价为 {final_price}。")
+                self.notify_clients(f"{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
+                self.items_status[item]['item_sold'] = True
+                self.notify_clients(f"拍卖结束，{winner} 获胜，出价 {final_price}。")
             else:
                 self.notify_clients(f"{winner} 余额不足，无法完成交易。")
                 print(f"{winner} 余额不足，当前余额为 {self.clients[winner]['balance']}")
@@ -102,7 +108,12 @@ class AuctionServer:
             self.notify_clients(f"商品 '{self.current_item}' 无人竞拍。")
         
         self.current_winner = None
+        self.current_item = None
         self.current_bid = 10
+
+    def notify_clients(self, message):
+        for client in self.clients.values():
+            client['conn'].send(message.encode())
 
     def update_gui(self):
         if self.gui:
@@ -124,6 +135,8 @@ class AuctionServer:
 
     def set_gui(self, gui):
         self.gui = gui
+
+
 
 
 class AuctionServerGUI(tk.Tk):
