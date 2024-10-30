@@ -5,8 +5,8 @@ from tkinter import messagebox, scrolledtext
 
 class AuctionClient:
     def __init__(self):
-        self.host = '116.198.198.29' 
-        self.port = 5200       
+        self.host = '116.198.198.29'
+        self.port = 5200
         self.username = None
         self.balance = 1000
         self.won_items = []
@@ -15,14 +15,28 @@ class AuctionClient:
         self.current_item = "无"
         self.pending_bid = None
 
+    def send_message(self, message):
+        if isinstance(message, str):
+            message_bytes = message.encode()
+        elif isinstance(message, bytes):
+            message_bytes = message
+        else:
+            raise ValueError("Message must be a string or bytes")
+
+        message_length = len(message_bytes)
+        length_prefix = message_length.to_bytes(4, byteorder='big')
+        self.conn.send(length_prefix + message_bytes)
+
+
     def connect(self):
         self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             self.conn.connect((self.host, self.port))
-            self.conn.send(f"{self.username},{self.balance}".encode())
+            print(f"发送消息: {self.username},{self.balance}")
+            self.send_message(f"{self.username},{self.balance}".encode())
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
-            self.initial_window.destroy() 
+            self.initial_window.destroy()
             self.start_auction_interface()
         except Exception as e:
             messagebox.showerror("连接错误", f"无法连接到服务器: {e}")
@@ -30,7 +44,16 @@ class AuctionClient:
     def receive_messages(self):
         while True:
             try:
-                message = self.conn.recv(1024).decode()
+                
+                length_prefix = self.conn.recv(4)
+                if not length_prefix:
+                    break 
+
+                
+                message_length = int.from_bytes(length_prefix, byteorder='big')
+
+                
+                message = self.conn.recv(message_length).decode()
                 if message:
                     print(f"接收到的消息: {message}")
                     self.send_balance()
@@ -60,18 +83,18 @@ class AuctionClient:
                 else:
                     break
             except Exception as e:
-                print(f"接收数据时发生错误：{e}") 
+                print(f"接收数据时发生错误：{e}")
                 messagebox.showerror("连接错误", f"接收数据时发生错误：{e}")
                 self.conn.close()
                 break
 
     def send_balance(self):
-        self.conn.send(f"BALANCE {self.balance}".encode())
+        self.send_message(f"BALANCE {self.balance}")
 
     def place_bid(self):
         bid = self.bid_entry.get()
         if bid.upper() == 'EXIT':
-            self.conn.send("EXIT".encode())
+            self.send_message("EXIT")
             self.root.quit()
             return
         try:
@@ -79,7 +102,7 @@ class AuctionClient:
             if bid_amount > self.balance:
                 messagebox.showwarning("无效出价", "您的出价超过当前余额。")
             else:
-                self.conn.send(f"BID {bid_amount}".encode())
+                self.send_message(f"BID {bid_amount}")
                 self.pending_bid = bid_amount
         except ValueError:
             messagebox.showerror("输入错误", "请输入有效的数字。")
@@ -136,22 +159,20 @@ class AuctionClient:
     def start_connection(self):
         self.host = self.ip_entry.get() or self.host
         self.port = int(self.port_entry.get() or self.port)
-        self.username = self.username_entry.get()
-        balance_input = self.balance_entry.get()
+        self.username = self.username_entry.get().strip()
+        balance_input = self.balance_entry.get().strip()
+        if not self.username:
+            messagebox.showerror("输入错误", "用户名不能为空。")
+            return
         try:
             self.balance = int(balance_input) if balance_input else self.balance
             self.connect()
         except ValueError:
             messagebox.showerror("输入错误", "请输入有效的起始资金。")
-
-    def update_current_item(self):
-            self.current_item_label.config(text=f"当前拍卖商品: {self.current_item}")
-
     def start_auction_interface(self):
         self.root = tk.Tk()
         self.root.title("拍卖客户端")
         self.root.geometry("600x500")
-
         self.root.config(bg="#e0e0e0")
 
         tk.Label(self.root, text="当前余额:", bg="#e0e0e0", font=("Arial", 12)).grid(row=0, column=0, pady=5)
@@ -179,12 +200,12 @@ class AuctionClient:
 
     def on_closing(self):
         if messagebox.askokcancel("退出", "您确定要退出吗？"):
-            self.conn.send("EXIT".encode())
+            self.send_message("EXIT".encode())
             self.root.quit()
 
     def run(self):
         self.create_startup_window()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     client = AuctionClient()
     client.run()

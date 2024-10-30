@@ -6,6 +6,7 @@ from tkinter import scrolledtext, StringVar, messagebox
 from tkinter import ttk
 import os
 import sys
+import struct
 
 class AuctionServer:
     def __init__(self, host='127.0.0.1', port=65432):
@@ -31,27 +32,47 @@ class AuctionServer:
 
     def handle_client(self, conn, addr):
         print(f"客户端连接: {addr}")
-        data = conn.recv(1024).decode()
-        username, balance_str = data.split(',')
-        balance = int(balance_str)
-
-        self.clients[username] = {'conn': conn, 'balance': balance, 'won_items': []}
-        self.update_client_list()
         
-        while True:
-            message = conn.recv(1024).decode()
-            if message == 'EXIT':
-                del self.clients[username]
+        try:
+            message = self.receive_message(conn)
+            print(f"接收到的初始消息: {message}")
+            
+            username, balance_str = message.split(',')
+            balance = int(balance_str) 
+            self.clients[username] = {'conn': conn, 'balance': balance, 'won_items': []}
+            self.update_client_list()
+            
+            while True:
+                message = self.receive_message(conn)
+                print(f"接收到的消息: {message}")
+                
+                if message == 'EXIT':
+                    print(f"处理退出请求: {username}")
+                    del self.clients[username]
+                    conn.close()
+                    print(f"客户端断开连接: {addr}")
+                    self.update_client_list()
+                    break
+                elif message.startswith('BID'):
+                    self.process_bid(username, message)
+                elif message.startswith('BALANCE'):
+                    try:
+                        balance = int(message.split()[1])
+                        self.clients[username]['balance'] = balance
+                        self.update_client_list()
+                    except (IndexError, ValueError) as e:
+                        print(f"处理余额更新时发生错误: {e}")
+                        conn.send("ERROR: 余额格式不正确".encode())
+                else:
+                    print(f"接收到未知命令: {message}")
+                    conn.send("ERROR: 未知命令".encode())
+        
+        except Exception as e:
+            print(f"处理客户端 {addr} 时发生错误: {e}")
+            conn.send("ERROR: 处理请求时发生错误".encode())
+        finally:
+            if conn:
                 conn.close()
-                print(f"客户端断开连接: {addr}")
-                self.update_client_list()
-                break
-            elif message.startswith('BID'):
-                self.process_bid(username, message)
-            elif message.startswith('BALANCE'):
-                balance = int(message.split()[1])
-                self.clients[username]['balance'] = balance
-                self.update_client_list()
 
     def start_auction(self, category, item):
         self.current_item = item
@@ -65,13 +86,13 @@ class AuctionServer:
 
     def process_bid(self, username, message):
         if self.current_item is None:
-            self.clients[username]['conn'].send("当前没有进行中的拍卖，无法出价。".encode())
+            self.send_message(self.clients[username]['conn'], "当前没有进行中的拍卖，无法出价。")
             return
 
         item_status = self.items_status[self.current_item]
 
         if item_status['item_sold']:
-            self.clients[username]['conn'].send("该商品已成交，无法出价。".encode())
+            self.send_message(self.clients[username]['conn'], "该商品已成交，无法出价。")
             return
 
         try:
@@ -83,9 +104,9 @@ class AuctionServer:
                 self.notify_clients(f"{username} 是当前的最高出价者，出价 {bid_amount}。")
                 self.update_gui() 
             else:
-                self.clients[username]['conn'].send("出价过低或余额不足。".encode())
+                self.send_message(self.clients[username]['conn'], "出价过低或余额不足。")
         except ValueError:
-            self.clients[username]['conn'].send("出价格式无效。".encode())
+            self.send_message(self.clients[username]['conn'], "出价格式无效。")
 
     def complete_transaction(self):
         if self.current_winner:
@@ -97,8 +118,8 @@ class AuctionServer:
                 self.clients[winner]['balance'] -= final_price
                 self.clients[winner]['won_items'].append(item)
                 print(f"{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
-                self.clients[winner]['conn'].send(f"WINNER {item}".encode())
-                self.clients[winner]['conn'].send(f"SUCCEED {final_price} ".encode())
+                self.send_message(self.clients[winner]['conn'], f"WINNER {item}")
+                self.send_message(self.clients[winner]['conn'], f"SUCCEED {final_price} ")
                 print(f"交易成功: {item}，成交价: {final_price} 元，{winner} 的新余额: {self.clients[winner]['balance']} 元。")
                 self.notify_clients(f"赢家{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
                 self.notify_clients("END_OF_AUCTION")
@@ -116,7 +137,20 @@ class AuctionServer:
 
     def notify_clients(self, message):
         for client in self.clients.values():
-            client['conn'].send(message.encode())
+            self.send_message(client['conn'], message)
+
+    def send_message(self, conn, message):
+        message_bytes = message.encode('utf-8')
+        message_length = struct.pack('>I', len(message_bytes)) 
+        conn.sendall(message_length + message_bytes)
+
+    def receive_message(self, conn):
+        length_bytes = conn.recv(4)
+        if not length_bytes:
+            return None
+        message_length = struct.unpack('>I', length_bytes)[0]
+        message_bytes = conn.recv(message_length)
+        return message_bytes.decode('utf-8')
 
     def update_gui(self):
         if self.gui:
@@ -138,6 +172,7 @@ class AuctionServer:
 
     def set_gui(self, gui):
         self.gui = gui
+
 
 
 
