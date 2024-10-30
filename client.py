@@ -35,19 +35,22 @@ class AuctionClient:
                     print(f"接收到的消息: {message}")
                     self.send_balance()
                     if message.startswith("ITEM"):
-                        self.current_item = message[5:]
+                        self.current_item = message.split("'")[1]
                         self.root.after(0, self.update_current_item)
                     elif message.startswith("WINNER"):
                         item_won = message.split()[1]
                         self.won_items.append(item_won)
                         self.root.after(0, self.update_won_items_display)
-                    elif message.startswith("交易成功"):
+                    elif message.startswith("SUCCEED"):
+                        print(f"接收到交易成功消息: {message}")
                         parts = message.split()
                         if len(parts) > 1:
                             amount = int(parts[1])
                             self.balance -= amount
                             self.balance_label.config(text=f"当前余额: {self.balance}")
                             print(f"交易成功: {amount} 元已从账户中扣除，当前余额为: {self.balance} 元。")
+                        self.current_item = "无"
+                        self.root.after(0, self.update_current_item)
                         self.pending_bid = None
                     else:
                         self.root.after(0, self.update_message_area, message)
@@ -58,7 +61,6 @@ class AuctionClient:
                 messagebox.showerror("连接错误", f"接收数据时发生错误：{e}")
                 self.conn.close()
                 break
-
 
     def send_balance(self):
         self.conn.send(f"BALANCE {self.balance}".encode())
@@ -98,29 +100,34 @@ class AuctionClient:
 
     def create_startup_window(self):
         self.initial_window = tk.Tk()
+        self.initial_window.withdraw()
+        messagebox.showinfo("提示", "本软件由折木制作，如有任何出现BUG的情况，算你倒霉")
         self.initial_window.title("拍卖客户端 - 启动界面")
+        self.initial_window.geometry("400x300")
+        self.initial_window.config(bg="#f0f0f0")
 
-        tk.Label(self.initial_window, text="IP 地址:").grid(row=0, column=0)
-        self.ip_entry = tk.Entry(self.initial_window)
+        tk.Label(self.initial_window, text="IP 地址:", bg="#f0f0f0", font=("Arial", 12)).grid(row=0, column=0, pady=5)
+        self.ip_entry = tk.Entry(self.initial_window, font=("Arial", 12))
         self.ip_entry.insert(0, self.host)
-        self.ip_entry.grid(row=0, column=1)
+        self.ip_entry.grid(row=0, column=1, pady=5)
 
-        tk.Label(self.initial_window, text="端口号:").grid(row=1, column=0)
-        self.port_entry = tk.Entry(self.initial_window)
+        tk.Label(self.initial_window, text="端口号:", bg="#f0f0f0", font=("Arial", 12)).grid(row=1, column=0, pady=5)
+        self.port_entry = tk.Entry(self.initial_window, font=("Arial", 12))
         self.port_entry.insert(0, str(self.port))
-        self.port_entry.grid(row=1, column=1)
+        self.port_entry.grid(row=1, column=1, pady=5)
 
-        tk.Label(self.initial_window, text="用户名:").grid(row=2, column=0)
-        self.username_entry = tk.Entry(self.initial_window)
-        self.username_entry.grid(row=2, column=1)
+        tk.Label(self.initial_window, text="用户名:", bg="#f0f0f0", font=("Arial", 12)).grid(row=2, column=0, pady=5)
+        self.username_entry = tk.Entry(self.initial_window, font=("Arial", 12))
+        self.username_entry.grid(row=2, column=1, pady=5)
 
-        tk.Label(self.initial_window, text="起始资金:").grid(row=3, column=0)
-        self.balance_entry = tk.Entry(self.initial_window)
+        tk.Label(self.initial_window, text="起始资金:", bg="#f0f0f0", font=("Arial", 12)).grid(row=3, column=0, pady=5)
+        self.balance_entry = tk.Entry(self.initial_window, font=("Arial", 12))
         self.balance_entry.insert(0, str(self.balance))
-        self.balance_entry.grid(row=3, column=1)
+        self.balance_entry.grid(row=3, column=1, pady=5)
 
-        tk.Button(self.initial_window, text="连接", command=self.start_connection).grid(row=4, columnspan=2)
+        tk.Button(self.initial_window, text="LINK START", command=self.start_connection, font=("Arial", 12)).grid(row=4, columnspan=2, pady=10)
 
+        self.initial_window.deiconify()
         self.initial_window.mainloop()
 
     def start_connection(self):
@@ -134,29 +141,35 @@ class AuctionClient:
         except ValueError:
             messagebox.showerror("输入错误", "请输入有效的起始资金。")
 
+    def update_current_item(self):
+            self.current_item_label.config(text=f"当前拍卖商品: {self.current_item}")
+
     def start_auction_interface(self):
         self.root = tk.Tk()
         self.root.title("拍卖客户端")
+        self.root.geometry("600x500")
 
-        tk.Label(self.root, text="当前余额:").grid(row=0, column=0)
-        self.balance_label = tk.Label(self.root, text=f"当前余额: {self.balance}")
-        self.balance_label.grid(row=0, column=1)
+        self.root.config(bg="#e0e0e0")
 
-        self.current_item_label = tk.Label(self.root, text=f"当前拍卖商品: {self.current_item}")
-        self.current_item_label.grid(row=1, columnspan=2)
+        tk.Label(self.root, text="当前余额:", bg="#e0e0e0", font=("Arial", 12)).grid(row=0, column=0, pady=5)
+        self.balance_label = tk.Label(self.root, text=f"当前余额: {self.balance}", bg="#e0e0e0", font=("Arial", 12))
+        self.balance_label.grid(row=0, column=1, pady=5)
 
-        tk.Label(self.root, text="输入您的出价:").grid(row=2, column=0)
-        self.bid_entry = tk.Entry(self.root)
-        self.bid_entry.grid(row=2, column=1)
+        self.current_item_label = tk.Label(self.root, text=f"当前拍卖商品: {self.current_item}", bg="#e0e0e0", font=("Arial", 12))
+        self.current_item_label.grid(row=1, columnspan=2, pady=5)
 
-        tk.Button(self.root, text="出价", command=self.place_bid).grid(row=2, column=2)
+        tk.Label(self.root, text="输入您的出价:", bg="#e0e0e0", font=("Arial", 12)).grid(row=2, column=0, pady=5)
+        self.bid_entry = tk.Entry(self.root, font=("Arial", 12))
+        self.bid_entry.grid(row=2, column=1, pady=5)
 
-        self.message_area = scrolledtext.ScrolledText(self.root, width=40, height=10, state=tk.DISABLED)
-        self.message_area.grid(row=3, columnspan=3)
+        tk.Button(self.root, text="出价", command=self.place_bid, font=("Arial", 12)).grid(row=2, column=2, pady=5)
 
-        tk.Label(self.root, text="已赢得商品:").grid(row=4, column=0)
-        self.won_items_area = scrolledtext.ScrolledText(self.root, width=40, height=5, state=tk.DISABLED)
-        self.won_items_area.grid(row=5, columnspan=3)
+        self.message_area = scrolledtext.ScrolledText(self.root, width=50, height=10, state=tk.DISABLED, font=("Arial", 12))
+        self.message_area.grid(row=3, columnspan=3, pady=5)
+
+        tk.Label(self.root, text="已赢得商品:", bg="#e0e0e0", font=("Arial", 12)).grid(row=4, column=0, pady=5)
+        self.won_items_area = scrolledtext.ScrolledText(self.root, width=50, height=5, state=tk.DISABLED, font=("Arial", 12))
+        self.won_items_area.grid(row=5, columnspan=3, pady=5)
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.root.mainloop()

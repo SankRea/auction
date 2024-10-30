@@ -58,6 +58,7 @@ class AuctionServer:
         self.current_bid = 10
         self.current_winner = None
         self.items_status[item] = {'item_sold': False, 'current_bid': self.current_bid}
+        self.notify_clients(f"ITEM: '{self.current_item}' 起拍价为 {self.current_bid}。")
         self.notify_clients(f"拍卖开始: '{self.current_item}' 起拍价为 {self.current_bid}。")
         print(f"拍卖开始: '{self.current_item}' 起拍价为 {self.current_bid}。")
         self.update_gui()
@@ -97,10 +98,11 @@ class AuctionServer:
                 self.clients[winner]['won_items'].append(item)
                 print(f"{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
                 self.clients[winner]['conn'].send(f"WINNER {item}".encode())
-                self.clients[winner]['conn'].send(f"交易成功 {final_price}".encode())
-                self.notify_clients(f"{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
+                self.clients[winner]['conn'].send(f"SUCCEED {final_price} ".encode())
+                print(f"交易成功: {item}，成交价: {final_price} 元，{winner} 的新余额: {self.clients[winner]['balance']} 元。")
+                self.notify_clients(f"赢家{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
                 self.items_status[item]['item_sold'] = True
-                self.notify_clients(f"拍卖结束，{winner} 获胜，出价 {final_price}。")
+                self.gui.update_transaction_info(item, final_price)
             else:
                 self.notify_clients(f"{winner} 余额不足，无法完成交易。")
                 print(f"{winner} 余额不足，当前余额为 {self.clients[winner]['balance']}")
@@ -144,36 +146,45 @@ class AuctionServerGUI(tk.Tk):
         super().__init__()
         self.server = server
         self.title("拍卖服务器")
-        self.geometry("600x400")
-        self.configure(bg="#f0f0f0")
+        self.geometry("800x600") 
+        self.configure(bg="#eaeaea")
 
         self.category_var = StringVar(self)
         self.item_var = StringVar(self)
 
-        self.category_label = tk.Label(self, text="选择商品大类", bg="#f0f0f0")
-        self.category_label.grid(row=0, column=0, padx=5, pady=5)
-        self.category_menu = ttk.Combobox(self, textvariable=self.category_var, state="readonly")
-        self.category_menu.grid(row=0, column=1, padx=5, pady=5)
+        self.category_label = tk.Label(self, text="选择商品大类", bg="#eaeaea", font=("Arial", 12))
+        self.category_label.grid(row=0, column=0, padx=10, pady=10)
+        
+        self.category_menu = ttk.Combobox(self, textvariable=self.category_var, state="readonly", font=("Arial", 12))
+        self.category_menu.grid(row=0, column=1, padx=10, pady=10)
         self.category_menu.bind("<<ComboboxSelected>>", self.load_items)
 
-        self.item_label = tk.Label(self, text="选择商品", bg="#f0f0f0")
-        self.item_label.grid(row=1, column=0, padx=5, pady=5)
-        self.item_menu = ttk.Combobox(self, textvariable=self.item_var, state="readonly")
-        self.item_menu.grid(row=1, column=1, padx=5, pady=5)
+        self.item_label = tk.Label(self, text="选择商品", bg="#eaeaea", font=("Arial", 12))
+        self.item_label.grid(row=1, column=0, padx=10, pady=10)
+        
+        self.item_menu = ttk.Combobox(self, textvariable=self.item_var, state="readonly", font=("Arial", 12))
+        self.item_menu.grid(row=1, column=1, padx=10, pady=10)
 
-        self.auction_info = scrolledtext.ScrolledText(self, state='disabled', width=40, height=10)
-        self.auction_info.grid(row=2, column=0, columnspan=2, padx=5, pady=10)
+        self.auction_info = scrolledtext.ScrolledText(self, state='disabled', width=50, height=15, font=("Arial", 10))
+        self.auction_info.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
 
-        self.client_label = tk.Label(self, text="在线客户:", bg="#f0f0f0")
-        self.client_label.grid(row=0, column=2, padx=5, pady=5)
-        self.client_list = tk.Listbox(self, width=20, height=15)
-        self.client_list.grid(row=1, column=2, rowspan=2, padx=5, pady=5)
+        self.transaction_info = scrolledtext.ScrolledText(self, state='disabled', width=30, height=10, font=("Arial", 10))
+        self.transaction_info.grid(row=2, column=2, padx=10, pady=10)
 
-        self.start_button = tk.Button(self, text="开始拍卖", command=self.start_auction)
-        self.start_button.grid(row=3, column=0, padx=5, pady=5)
+        self.completed_transactions_info = scrolledtext.ScrolledText(self, state='disabled', width=30, height=10, font=("Arial", 10))
+        self.completed_transactions_info.grid(row=3, column=2, padx=10, pady=10)
 
-        self.transaction_button = tk.Button(self, text="交易", command=self.complete_transaction)
-        self.transaction_button.grid(row=3, column=1, padx=5, pady=5)
+        self.client_label = tk.Label(self, text="在线客户:", bg="#eaeaea", font=("Arial", 12))
+        self.client_label.grid(row=0, column=2, padx=10, pady=10)
+        
+        self.client_list = tk.Listbox(self, width=30, height=15, font=("Arial", 12))
+        self.client_list.grid(row=1, column=2, rowspan=2, padx=10, pady=10)
+
+        self.start_button = tk.Button(self, text="开始拍卖", command=self.start_auction, font=("Arial", 12), bg="#4CAF50", fg="white")
+        self.start_button.grid(row=3, column=0, padx=10, pady=10)
+
+        self.transaction_button = tk.Button(self, text="交易", command=self.complete_transaction, font=("Arial", 12), bg="#008CBA", fg="white")
+        self.transaction_button.grid(row=3, column=1, padx=10, pady=10)
 
         self.server.set_gui(self)
         self.load_categories()
@@ -213,6 +224,17 @@ class AuctionServerGUI(tk.Tk):
         self.client_list.delete(0, tk.END)
         for client in clients:
             self.client_list.insert(tk.END, client)
+
+    def update_transaction_info(self, item, price):
+        self.transaction_info.configure(state='normal')
+        self.transaction_info.insert(tk.END, f"成交商品: '{item}'，成交价格: {price} 元\n")
+        self.transaction_info.configure(state='disabled')
+        self.transaction_info.yview(tk.END)
+
+        self.completed_transactions_info.configure(state='normal')
+        self.completed_transactions_info.insert(tk.END, f"已成交商品: '{item}'，成交价格: {price} 元\n")
+        self.completed_transactions_info.configure(state='disabled')
+        self.completed_transactions_info.yview(tk.END)
 
 
 class StartupWindow(tk.Tk):
