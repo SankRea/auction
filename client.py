@@ -52,6 +52,9 @@ class AuctionClient:
                         self.current_item = "无"
                         self.root.after(0, self.update_current_item)
                         self.pending_bid = None
+                    elif message == "END_OF_AUCTION":
+                        self.current_item = "无"
+                        self.root.after(0, self.update_current_item)
                     else:
                         self.root.after(0, self.update_message_area, message)
                 else:

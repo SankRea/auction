@@ -101,6 +101,7 @@ class AuctionServer:
                 self.clients[winner]['conn'].send(f"SUCCEED {final_price} ".encode())
                 print(f"交易成功: {item}，成交价: {final_price} 元，{winner} 的新余额: {self.clients[winner]['balance']} 元。")
                 self.notify_clients(f"赢家{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
+                self.notify_clients("END_OF_AUCTION")
                 self.items_status[item]['item_sold'] = True
                 self.gui.update_transaction_info(item, final_price)
             else:
