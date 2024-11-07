@@ -36,16 +36,13 @@ class AuctionServer:
         try:
             message = self.receive_message(conn)
             print(f"接收到的初始消息: {message}")
-            
             username, balance_str = message.split(',')
             balance = int(balance_str) 
             self.clients[username] = {'conn': conn, 'balance': balance, 'won_items': []}
             self.update_client_list()
-            
             while True:
                 message = self.receive_message(conn)
                 print(f"接收到的消息: {message}")
-                
                 if message == 'EXIT':
                     print(f"处理退出请求: {username}")
                     del self.clients[username]
@@ -66,7 +63,6 @@ class AuctionServer:
                 else:
                     print(f"接收到未知命令: {message}")
                     conn.send("ERROR: 未知命令".encode())
-        
         except Exception as e:
             print(f"处理客户端 {addr} 时发生错误: {e}")
             conn.send("ERROR: 处理请求时发生错误".encode())
@@ -101,7 +97,7 @@ class AuctionServer:
                 item_status['current_bid'] = bid_amount
                 self.current_winner = username 
                 print(f"{username} 出价 {bid_amount}. 当前最高出价者: {self.current_winner}")
-                self.notify_clients(f"{username} 是当前的最高出价者，出价 {bid_amount}。")
+                self.notify_clients(f"{username} 是当前的最高出价者")
                 self.update_gui() 
             else:
                 self.send_message(self.clients[username]['conn'], "出价过低或余额不足。")
@@ -117,11 +113,11 @@ class AuctionServer:
             if self.clients[winner]['balance'] >= final_price:
                 self.clients[winner]['balance'] -= final_price
                 self.clients[winner]['won_items'].append(item)
-                print(f"{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
+                print(f"{winner} 赢得了商品 '{item}'")
                 self.send_message(self.clients[winner]['conn'], f"WINNER {item}")
                 self.send_message(self.clients[winner]['conn'], f"SUCCEED {final_price} ")
                 print(f"交易成功: {item}，成交价: {final_price} 元，{winner} 的新余额: {self.clients[winner]['balance']} 元。")
-                self.notify_clients(f"赢家{winner} 赢得了商品 '{item}'，成交价为 {final_price}。")
+                self.notify_clients(f"赢家{winner} 赢得了商品 '{item}'")
                 self.notify_clients("END_OF_AUCTION")
                 self.items_status[item]['item_sold'] = True
                 self.gui.update_transaction_info(item, final_price)
